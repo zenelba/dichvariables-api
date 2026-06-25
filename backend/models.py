@@ -60,6 +60,7 @@ class AnalyzeRequest(BaseModel):
     groups: dict[int, DescriptionEntry] | None = None
     mode: Mode
     items: dict[int, DescriptionEntry] | None = None
+    column_prefix: str | None = None
     weight_column: str | None = None
     outputs: OutputsConfig
 
@@ -82,6 +83,10 @@ class AnalyzeRequest(BaseModel):
         if self.mode == Mode.MULTIPLE:
             if not self.items:
                 raise ValueError("items is required when mode is 'multiple'")
+            if not self.column_prefix or not self.column_prefix.strip():
+                raise ValueError("column_prefix is required when mode is 'multiple'")
+            if "_" in self.column_prefix:
+                raise ValueError("column_prefix must not contain underscores")
         return self
 
 

@@ -1,5 +1,6 @@
 import numpy as np
 
+from backend.dataframe import PreparedData
 from backend.models import DistanceMetric
 
 
@@ -135,6 +136,41 @@ def variable_distance_condensed(
     if metric == DistanceMetric.SIMPSON:
         return simpson_distance_condensed(clustering_matrix, axis_weights=weights)
     return jaccard_distance_condensed(clustering_matrix, axis_weights=weights), []
+
+
+def _build_item_matrix(data: PreparedData) -> tuple[np.ndarray, np.ndarray]:
+    """Reshape multiple-mode data into (n_items, n_cases * n_vars) for item clustering."""
+    assert data.item_ids is not None
+    assert data.variable_ids is not None
+    assert data.column_pairs is not None
+
+    n_cases, _ = data.response_matrix.shape
+    n_vars = len(data.variable_ids)
+    n_items = len(data.item_ids)
+    item_matrix = np.zeros((n_items, n_cases * n_vars), dtype=float)
+
+    for item_idx, item_id in enumerate(data.item_ids):
+        col_indices = [
+            col_idx
+            for col_idx, (_, pair_item_id) in enumerate(data.column_pairs)
+            if pair_item_id == item_id
+        ]
+        block = data.response_matrix[:, col_indices]
+        item_matrix[item_idx] = block.ravel()
+
+    expanded_weights = np.tile(data.weights, n_vars)
+    return item_matrix, expanded_weights
+
+
+def item_distance_condensed(
+    data: PreparedData,
+    metric: DistanceMetric,
+) -> tuple[np.ndarray, list[tuple[int, int, float]]]:
+    """Distances between items (brands), weighted by case weights across variables."""
+    item_matrix, expanded_weights = _build_item_matrix(data)
+    if metric == DistanceMetric.SIMPSON:
+        return simpson_distance_condensed(item_matrix, axis_weights=expanded_weights)
+    return jaccard_distance_condensed(item_matrix, axis_weights=expanded_weights), []
 
 
 def pairwise_distance_matrix_from_condensed(
