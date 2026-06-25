@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DichVariables Analysis</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>DichVariables Analysis</h1>
+      <p class="subtitle">
+        Upload a dichotomous dataframe (VAR_* columns + weight) and run
+        segmentation, dendrogram, or graph analysis.
+      </p>
+
+      <form id="analyze-form">
+        <div class="card">
+          <h2>Request payload (JSON)</h2>
+          <label for="payload">variables, groups, mode, outputs</label>
+          <textarea id="payload" spellcheck="false"></textarea>
+        </div>
+
+        <div class="card">
+          <h2>Dataframe (Arrow IPC)</h2>
+          <label for="dataframe">
+            Columns: VAR_1, VAR_2, … plus weight column (e.g. wrakin1)
+          </label>
+          <input
+            id="dataframe"
+            type="file"
+            accept=".arrow,.ipc,application/octet-stream"
+          />
+        </div>
+
+        <div id="error" class="error hidden"></div>
+
+        <div class="actions">
+          <button type="submit" id="submit-btn">Run analysis</button>
+        </div>
+      </form>
+
+      <div id="results" class="results-grid hidden"></div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

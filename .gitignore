@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.vercel/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+node_modules/
+.next/
+next-env.d.ts
+.vercel
