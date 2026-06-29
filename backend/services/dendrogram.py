@@ -20,6 +20,8 @@ from backend.services.distances import (
 )
 
 DendrogramEntity = Literal["items", "variables"]
+LEAF_FONT_SIZE = 10.5  # 1.5× previous default of 7
+CAPTION_FONT_SIZE = 8
 
 
 def _build_variable_labels(request: AnalyzeRequest, variable_ids: list[int]) -> list[str]:
@@ -74,12 +76,16 @@ def _render_dendrogram_png(
 ) -> tuple[bytes, int, int, int]:
     fig_width, fig_height, dpi = _resolve_figure_size(config, len(labels))
     fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor="white")
+    caption = (
+        f"Hierarchical clustering of {entity_label} "
+        f"(Similarity: {distance_name.upper()}, Linkage: {grouping_name.upper()})"
+    )
 
     dendro_preview = scipy_dendrogram(
         linkage_matrix,
         labels=labels,
         orientation="right",
-        leaf_font_size=7,
+        leaf_font_size=LEAF_FONT_SIZE,
         color_threshold=color_threshold,
         above_threshold_color="gray",
         no_plot=True,
@@ -89,7 +95,7 @@ def _render_dendrogram_png(
         linkage_matrix,
         labels=labels,
         orientation="right",
-        leaf_font_size=7,
+        leaf_font_size=LEAF_FONT_SIZE,
         color_threshold=color_threshold,
         above_threshold_color="gray",
         ax=ax,
@@ -129,15 +135,21 @@ def _render_dendrogram_png(
         for label, color in zip(ax.get_yticklabels(), ordered_leaf_colors):
             label.set_color(color)
             label.set_fontweight("bold")
+            label.set_fontsize(LEAF_FONT_SIZE)
 
-    ax.set_title(
-        f"Hierarchical clustering of {entity_label} "
-        f"(Similarity: {distance_name.upper()}, Linkage: {grouping_name.upper()})"
-    )
-    ax.set_ylabel(f"Distance ({distance_name.capitalize()})")
+    ax.set_ylabel("")
     ax.set_facecolor("white")
     ax.set_axisbelow(True)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.text(
+        0.5,
+        0.01,
+        caption,
+        ha="center",
+        va="bottom",
+        fontsize=CAPTION_FONT_SIZE,
+        color="#555555",
+    )
 
     buf = io.BytesIO()
     fixed_size = (
