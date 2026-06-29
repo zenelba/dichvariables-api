@@ -10,8 +10,8 @@ from scipy.cluster.hierarchy import dendrogram as scipy_dendrogram
 from scipy.cluster.hierarchy import fcluster, linkage
 
 from backend.dataframe import PreparedData
-from backend.models import AnalyzeRequest, DendrogramConfig, DendrogramResult
-from backend.services.distances import variable_distance_condensed
+from backend.models import AnalyzeRequest, DendrogramConfig, DendrogramResult, Mode
+from backend.services.distances import item_distance_condensed, variable_distance_condensed
 
 
 def _build_variable_labels(request: AnalyzeRequest, variable_ids: list[int]) -> list[str]:
@@ -30,12 +30,22 @@ def _build_variable_labels(request: AnalyzeRequest, variable_ids: list[int]) -> 
     return labels
 
 
+def _build_item_labels(request: AnalyzeRequest, item_ids: list[int]) -> list[str]:
+    assert request.items is not None
+    labels: list[str] = []
+    for item_id in item_ids:
+        item = request.items[item_id]
+        labels.append(item.long_description or item.short_description)
+    return labels
+
+
 def _render_dendrogram_png(
     linkage_matrix,
     labels: list[str],
     color_threshold: float,
     distance_name: str,
     grouping_name: str,
+    entity_label: str,
 ) -> bytes:
     fig_height = max(10, len(labels) * 0.22)
     fig, ax = plt.subplots(figsize=(14, fig_height), facecolor="white")
@@ -96,7 +106,7 @@ def _render_dendrogram_png(
             label.set_fontweight("bold")
 
     ax.set_title(
-        f"Hierarchical clustering of variables "
+        f"Hierarchical clustering of {entity_label} "
         f"(Similarity: {distance_name.upper()}, Linkage: {grouping_name.upper()})"
     )
     ax.set_ylabel(f"Distance ({distance_name.capitalize()})")
@@ -115,13 +125,25 @@ def compute_dendrogram(
     request: AnalyzeRequest,
     config: DendrogramConfig,
 ) -> DendrogramResult:
-    n_vars = len(data.entity_ids)
-    if n_vars < 2:
-        raise ValueError("Need at least two variables for dendrogram clustering")
+    if request.mode == Mode.MULTIPLE:
+        n_entities = len(data.entity_ids)
+        entity_label = "items"
+        if n_entities < 2:
+            raise ValueError("Need at least two items for dendrogram clustering")
+        distance_vector, _similarity_pairs = item_distance_condensed(
+            data, config.distance
+        )
+        text_labels = _build_item_labels(request, data.entity_ids)
+    else:
+        n_entities = len(data.entity_ids)
+        entity_label = "variables"
+        if n_entities < 2:
+            raise ValueError("Need at least two variables for dendrogram clustering")
+        distance_vector, _similarity_pairs = variable_distance_condensed(
+            data.response_matrix, data.weights, config.distance
+        )
+        text_labels = _build_variable_labels(request, data.entity_ids)
 
-    distance_vector, _similarity_pairs = variable_distance_condensed(
-        data.response_matrix, data.weights, config.distance
-    )
     linkage_matrix = linkage(distance_vector, method=config.grouping.value)
 
     threshold_idx = len(linkage_matrix) - config.num_groups
@@ -134,17 +156,17 @@ def compute_dendrogram(
         linkage_matrix, t=config.num_groups, criterion="maxclust"
     )
 
-    text_labels = _build_variable_labels(request, data.entity_ids)
     png_bytes = _render_dendrogram_png(
         linkage_matrix,
         text_labels,
         color_threshold,
         config.distance.value,
         config.grouping.value,
+        entity_label,
     )
 
     cluster_assignments = {
-        data.entity_ids[i]: int(flat_clusters[i]) for i in range(n_vars)
+        data.entity_ids[i]: int(flat_clusters[i]) for i in range(n_entities)
     }
 
     return DendrogramResult(

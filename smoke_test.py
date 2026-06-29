@@ -92,23 +92,39 @@ def test_analyze_multiple_mode():
     payload = {
         "variables": {
             "1": {
-                "short_description": "Trait",
+                "short_description": "Trait 1",
                 "long_description": "Trait one",
+            },
+            "2": {
+                "short_description": "Trait 2",
+                "long_description": "Trait two",
             },
         },
         "mode": "multiple",
+        "column_prefix": "IM6",
         "items": {
-            "101": {"short_description": "A", "long_description": "Item A"},
-            "102": {"short_description": "B", "long_description": "Item B"},
+            "101": {"short_description": "A", "long_description": "Brand A"},
+            "102": {"short_description": "B", "long_description": "Brand B"},
         },
-        "outputs": {"graph": {"distance": "jaccard"}},
+        "weight_column": "weight",
+        "outputs": {
+            "segmentation": {"num_segments": 2},
+            "dendrogram": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+            },
+            "graph": {"distance": "jaccard"},
+        },
     }
 
     df = pl.DataFrame(
         {
-            "ITEM_101": [1, 0],
-            "ITEM_102": [0, 1],
-            "weight": [1.0, 1.0],
+            "IM6_1_101": [1, 0, 1],
+            "IM6_2_101": [1, 1, 0],
+            "IM6_1_102": [0, 1, 1],
+            "IM6_2_102": [1, 0, 0],
+            "weight": [1.0, 2.0, 1.5],
         }
     )
 
@@ -124,7 +140,81 @@ def test_analyze_multiple_mode():
         },
     )
     assert r.status_code == 200, r.text
-    assert "graph" in r.json()
+    body = r.json()
+    assert "segmentation" in body
+    assert "dendrogram" in body
+    assert "graph" in body
+    assert body["segmentation"]["num_segments"] == 2
+    dendro = body["dendrogram"]
+    assert "image_png_base64" in dendro
+    png_bytes = base64.b64decode(dendro["image_png_base64"])
+    assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
+    assert set(dendro["cluster_assignments"].keys()) == {"101", "102"}
+    assert len(body["graph"]["edges"]) == 3
+
+
+def test_multiple_mode_missing_column_prefix():
+    payload = {
+        "variables": {
+            "1": {"short_description": "T", "long_description": "Trait"},
+        },
+        "mode": "multiple",
+        "items": {
+            "101": {"short_description": "A", "long_description": "Brand A"},
+        },
+        "outputs": {"graph": {"distance": "jaccard"}},
+    }
+    df = pl.DataFrame({"IM6_1_101": [1, 0], "weight": [1.0, 1.0]})
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_multiple_mode_missing_pair_column():
+    payload = {
+        "variables": {
+            "1": {"short_description": "T1", "long_description": "Trait one"},
+            "2": {"short_description": "T2", "long_description": "Trait two"},
+        },
+        "mode": "multiple",
+        "column_prefix": "IM6",
+        "items": {
+            "101": {"short_description": "A", "long_description": "Brand A"},
+            "102": {"short_description": "B", "long_description": "Brand B"},
+        },
+        "outputs": {"graph": {"distance": "jaccard"}},
+    }
+    df = pl.DataFrame(
+        {
+            "IM6_1_101": [1, 0],
+            "IM6_2_101": [0, 1],
+            "IM6_1_102": [1, 0],
+            "weight": [1.0, 1.0],
+        }
+    )
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 422
 
 
 def test_validation_missing_groups():
@@ -204,6 +294,8 @@ if __name__ == "__main__":
     test_health()
     test_analyze_single_mode_var_columns()
     test_analyze_multiple_mode()
+    test_multiple_mode_missing_column_prefix()
+    test_multiple_mode_missing_pair_column()
     test_validation_missing_groups()
     test_explicit_weight_column()
     print("All smoke tests passed.")

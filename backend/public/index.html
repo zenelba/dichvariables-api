@@ -10,9 +10,15 @@
     <main>
       <h1>DichVariables Analysis</h1>
       <p class="subtitle">
-        Upload a dichotomous dataframe (VAR_* columns + weight) and run
-        segmentation, dendrogram, or graph analysis.
+        Upload a dichotomous dataframe and run segmentation, dendrogram, or
+        graph analysis. Single mode uses VAR_* columns; multiple mode uses
+        {prefix}_{variable}_{item} columns (e.g. IM6_11_20).
       </p>
+
+      <div class="mode-toggle">
+        <button type="button" id="mode-single" class="mode-btn active">Single mode</button>
+        <button type="button" id="mode-multiple" class="mode-btn">Multiple mode</button>
+      </div>
 
       <form id="analyze-form">
         <div class="card">
@@ -23,7 +29,7 @@
 
         <div class="card">
           <h2>Dataframe (Arrow IPC)</h2>
-          <label for="dataframe">
+          <label for="dataframe" id="column-hint">
             Columns: VAR_1, VAR_2, … plus weight column (e.g. wrakin1)
           </label>
           <input

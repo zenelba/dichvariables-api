@@ -1,4 +1,4 @@
-const EXAMPLE_PAYLOAD = {
+const EXAMPLE_PAYLOAD_SINGLE = {
   variables: {
     "1": {
       short_description: "Var 1",
@@ -30,14 +30,72 @@ const EXAMPLE_PAYLOAD = {
   },
 };
 
+const EXAMPLE_PAYLOAD_MULTIPLE = {
+  variables: {
+    "1": {
+      short_description: "Trait 1",
+      long_description: "First trait",
+    },
+    "2": {
+      short_description: "Trait 2",
+      long_description: "Second trait",
+    },
+  },
+  mode: "multiple",
+  column_prefix: "IM6",
+  items: {
+    "101": {
+      short_description: "Brand A",
+      long_description: "Brand A full name",
+    },
+    "102": {
+      short_description: "Brand B",
+      long_description: "Brand B full name",
+    },
+  },
+  weight_column: "wrakin1",
+  outputs: {
+    segmentation: { num_segments: 3 },
+    dendrogram: {
+      distance: "simpson",
+      grouping: "average",
+      num_groups: 2,
+    },
+    graph: { distance: "jaccard" },
+  },
+};
+
 const payloadEl = document.getElementById("payload");
 const formEl = document.getElementById("analyze-form");
 const fileEl = document.getElementById("dataframe");
 const errorEl = document.getElementById("error");
 const resultsEl = document.getElementById("results");
 const submitBtn = document.getElementById("submit-btn");
+const modeSingleBtn = document.getElementById("mode-single");
+const modeMultipleBtn = document.getElementById("mode-multiple");
+const columnHintEl = document.getElementById("column-hint");
 
-payloadEl.value = JSON.stringify(EXAMPLE_PAYLOAD, null, 2);
+let activeMode = "single";
+
+function setMode(mode) {
+  activeMode = mode;
+  modeSingleBtn.classList.toggle("active", mode === "single");
+  modeMultipleBtn.classList.toggle("active", mode === "multiple");
+  payloadEl.value = JSON.stringify(
+    mode === "single" ? EXAMPLE_PAYLOAD_SINGLE : EXAMPLE_PAYLOAD_MULTIPLE,
+    null,
+    2,
+  );
+  columnHintEl.textContent =
+    mode === "single"
+      ? "Columns: VAR_1, VAR_2, … plus weight column (e.g. wrakin1)"
+      : "Columns: {prefix}_{var}_{item} (e.g. IM6_1_101, IM6_2_102), plus weight column";
+}
+
+modeSingleBtn.addEventListener("click", () => setMode("single"));
+modeMultipleBtn.addEventListener("click", () => setMode("multiple"));
+
+setMode("single");
 
 function showError(message) {
   errorEl.textContent = message;
