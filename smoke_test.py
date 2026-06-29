@@ -120,10 +120,10 @@ def test_analyze_multiple_mode():
 
     df = pl.DataFrame(
         {
-            "IM6_1_101": [1, 0, 1],
-            "IM6_2_101": [1, 1, 0],
-            "IM6_1_102": [0, 1, 1],
-            "IM6_2_102": [1, 0, 0],
+            "IM6_101_1": [1, 0, 1],
+            "IM6_101_2": [1, 1, 0],
+            "IM6_102_1": [0, 1, 1],
+            "IM6_102_2": [1, 0, 0],
             "weight": [1.0, 2.0, 1.5],
         }
     )
@@ -164,7 +164,7 @@ def test_multiple_mode_missing_column_prefix():
         },
         "outputs": {"graph": {"distance": "jaccard"}},
     }
-    df = pl.DataFrame({"IM6_1_101": [1, 0], "weight": [1.0, 1.0]})
+    df = pl.DataFrame({"IM6_101_1": [1, 0], "weight": [1.0, 1.0]})
 
     r = client.post(
         "/api/v1/analyze",
@@ -196,9 +196,9 @@ def test_multiple_mode_missing_pair_column():
     }
     df = pl.DataFrame(
         {
-            "IM6_1_101": [1, 0],
-            "IM6_2_101": [0, 1],
-            "IM6_1_102": [1, 0],
+            "IM6_101_1": [1, 0],
+            "IM6_101_2": [0, 1],
+            "IM6_102_1": [1, 0],
             "weight": [1.0, 1.0],
         }
     )

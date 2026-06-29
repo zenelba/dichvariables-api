@@ -62,7 +62,9 @@ def _parse_multiple_entity_pair(
 ) -> tuple[int, int] | None:
     match = _multiple_column_pattern(prefix).match(column)
     if match:
-        return int(match.group(1)), int(match.group(2))
+        item_id = int(match.group(1))
+        variable_id = int(match.group(2))
+        return variable_id, item_id
     return None
 
 
@@ -78,7 +80,7 @@ def expected_entity_pairs(request: AnalyzeRequest) -> set[tuple[int, int]]:
 def entity_column_name(
     variable_id: int, item_id: int, prefix: str
 ) -> str:
-    return f"{prefix}_{variable_id}_{item_id}"
+    return f"{prefix}_{item_id}_{variable_id}"
 
 
 def _single_mode_column_error_detail(

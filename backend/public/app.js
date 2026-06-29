@@ -89,7 +89,7 @@ function setMode(mode) {
   columnHintEl.textContent =
     mode === "single"
       ? "Columns: VAR_1, VAR_2, … plus weight column (e.g. wrakin1)"
-      : "Columns: {prefix}_{var}_{item} (e.g. IM6_1_101, IM6_2_102), plus weight column";
+      : "Columns: {prefix}_{item}_{var} (e.g. IM6_101_1, IM6_102_2), plus weight column";
 }
 
 modeSingleBtn.addEventListener("click", () => setMode("single"));
