@@ -6,6 +6,7 @@ import struct
 import sys
 
 import polars as pl
+import numpy as np
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -354,6 +355,46 @@ def test_dendrogram_custom_image_dimensions():
     assert struct.unpack(">II", png_bytes[16:24]) == (1200, 800)
 
 
+def test_dendrogram_colors_match_num_groups():
+    """Leaf colors must follow fcluster assignments, not scipy color_threshold."""
+    n_vars = 26
+    payload = {
+        "variables": {
+            str(i): {"short_description": f"V{i}", "long_description": f"Var {i}"}
+            for i in range(1, n_vars + 1)
+        },
+        "mode": "single",
+        "weight_column": "wrakin1",
+        "outputs": {
+            "dendrogram": {
+                "distance": "jaccard",
+                "grouping": "ward",
+                "num_groups": 14,
+            }
+        },
+    }
+    rng = np.random.default_rng(42)
+    cols = {f"VAR_{i}": rng.integers(0, 2, 30).tolist() for i in range(1, n_vars + 1)}
+    cols["wrakin1"] = [1.0] * 30
+    df = pl.DataFrame(cols)
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 200, r.text
+    dendro = r.json()["dendrogram"]
+    assert dendro["num_groups"] == 14
+    assert len(set(dendro["cluster_assignments"].values())) == 14
+
+
 if __name__ == "__main__":
     test_health()
     test_analyze_single_mode_var_columns()
@@ -363,5 +404,6 @@ if __name__ == "__main__":
     test_validation_missing_groups()
     test_explicit_weight_column()
     test_dendrogram_custom_image_dimensions()
+    test_dendrogram_colors_match_num_groups()
     print("All smoke tests passed.")
     sys.exit(0)

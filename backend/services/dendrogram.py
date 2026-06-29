@@ -8,6 +8,8 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import colormaps
 from scipy.cluster.hierarchy import dendrogram as scipy_dendrogram
 from scipy.cluster.hierarchy import fcluster, linkage
 
@@ -65,10 +67,27 @@ def _resolve_figure_size(
     return fig_width, fig_height, dpi
 
 
+def _cluster_colors(flat_clusters: np.ndarray) -> dict[int, tuple[float, ...]]:
+    """Map fcluster labels (1..k) to distinct colors."""
+    cluster_ids = sorted(int(c) for c in np.unique(flat_clusters))
+    cmap = colormaps["tab20"].resampled(max(len(cluster_ids), 1))
+    return {
+        cluster_id: cmap(i / max(len(cluster_ids) - 1, 1))
+        for i, cluster_id in enumerate(cluster_ids)
+    }
+
+
+def _leaf_colors_in_display_order(
+    flat_clusters: np.ndarray, leaves: list[int]
+) -> list[tuple[float, ...]]:
+    color_map = _cluster_colors(flat_clusters)
+    return [color_map[int(flat_clusters[leaf_idx])] for leaf_idx in leaves]
+
+
 def _render_dendrogram_png(
     linkage_matrix,
     labels: list[str],
-    color_threshold: float,
+    flat_clusters: np.ndarray,
     distance_name: str,
     grouping_name: str,
     entity_label: str,
@@ -87,8 +106,7 @@ def _render_dendrogram_png(
         labels=labels,
         orientation="right",
         leaf_font_size=LEAF_FONT_SIZE,
-        color_threshold=color_threshold,
-        above_threshold_color="gray",
+        above_threshold_color="#888888",
         no_plot=True,
     )
 
@@ -97,13 +115,13 @@ def _render_dendrogram_png(
         labels=labels,
         orientation="right",
         leaf_font_size=LEAF_FONT_SIZE,
-        color_threshold=color_threshold,
-        above_threshold_color="gray",
+        above_threshold_color="#888888",
         ax=ax,
         no_plot=False,
     )
 
-    ordered_leaf_colors = dendro_preview.get("leaves_color_list", [])
+    leaves = dendro_preview["leaves"]
+    ordered_leaf_colors = _leaf_colors_in_display_order(flat_clusters, leaves)
     y_positions = sorted(ax.get_yticks())
 
     if y_positions and len(y_positions) == len(ordered_leaf_colors):
@@ -179,20 +197,20 @@ def _compute_dendrogram_from_distances(
     n_entities = len(entity_ids)
     linkage_matrix = linkage(distance_vector, method=config.grouping.value)
 
+    flat_clusters = fcluster(
+        linkage_matrix, t=config.num_groups, criterion="maxclust"
+    )
+
     threshold_idx = len(linkage_matrix) - config.num_groups
     if 0 <= threshold_idx < len(linkage_matrix):
         color_threshold = float(linkage_matrix[threshold_idx, 2])
     else:
         color_threshold = float(0.5 * linkage_matrix[-1, 2])
 
-    flat_clusters = fcluster(
-        linkage_matrix, t=config.num_groups, criterion="maxclust"
-    )
-
     png_bytes, width_px, height_px, dpi = _render_dendrogram_png(
         linkage_matrix,
         text_labels,
-        color_threshold,
+        flat_clusters,
         config.distance.value,
         config.grouping.value,
         entity_label,
