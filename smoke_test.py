@@ -114,6 +114,11 @@ def test_analyze_multiple_mode():
                 "grouping": "average",
                 "num_groups": 2,
             },
+            "dendrogram_variables": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+            },
             "graph": {"distance": "jaccard"},
         },
     }
@@ -150,6 +155,11 @@ def test_analyze_multiple_mode():
     png_bytes = base64.b64decode(dendro["image_png_base64"])
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
     assert set(dendro["cluster_assignments"].keys()) == {"101", "102"}
+    var_dendro = body["dendrogram_variables"]
+    assert "image_png_base64" in var_dendro
+    var_png_bytes = base64.b64decode(var_dendro["image_png_base64"])
+    assert var_png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
+    assert set(var_dendro["cluster_assignments"].keys()) == {"1", "2"}
     assert len(body["graph"]["edges"]) == 3
 
 

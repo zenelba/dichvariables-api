@@ -46,11 +46,19 @@ class GraphConfig(BaseModel):
 class OutputsConfig(BaseModel):
     segmentation: SegmentationConfig | None = None
     dendrogram: DendrogramConfig | None = None
+    dendrogram_variables: DendrogramConfig | None = None
     graph: GraphConfig | None = None
 
     @model_validator(mode="after")
     def at_least_one_output(self) -> "OutputsConfig":
-        if not any([self.segmentation, self.dendrogram, self.graph]):
+        if not any(
+            [
+                self.segmentation,
+                self.dendrogram,
+                self.dendrogram_variables,
+                self.graph,
+            ]
+        ):
             raise ValueError("At least one output type must be requested")
         return self
 
@@ -123,6 +131,7 @@ class GraphResult(BaseModel):
 class AnalyzeResponse(BaseModel):
     segmentation: SegmentationResult | None = None
     dendrogram: DendrogramResult | None = None
+    dendrogram_variables: DendrogramResult | None = None
     graph: GraphResult | None = None
 
     @model_validator(mode="before")

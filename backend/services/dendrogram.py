@@ -1,5 +1,6 @@
 import base64
 import io
+from typing import Literal
 
 import matplotlib
 
@@ -11,7 +12,13 @@ from scipy.cluster.hierarchy import fcluster, linkage
 
 from backend.dataframe import PreparedData
 from backend.models import AnalyzeRequest, DendrogramConfig, DendrogramResult, Mode
-from backend.services.distances import item_distance_condensed, variable_distance_condensed
+from backend.services.distances import (
+    item_distance_condensed,
+    multiple_mode_variable_distance_condensed,
+    variable_distance_condensed,
+)
+
+DendrogramEntity = Literal["items", "variables"]
 
 
 def _build_variable_labels(request: AnalyzeRequest, variable_ids: list[int]) -> list[str]:
@@ -120,30 +127,14 @@ def _render_dendrogram_png(
     return buf.getvalue()
 
 
-def compute_dendrogram(
-    data: PreparedData,
-    request: AnalyzeRequest,
+def _compute_dendrogram_from_distances(
+    distance_vector,
+    entity_ids: list[int],
+    text_labels: list[str],
+    entity_label: str,
     config: DendrogramConfig,
 ) -> DendrogramResult:
-    if request.mode == Mode.MULTIPLE:
-        n_entities = len(data.entity_ids)
-        entity_label = "items"
-        if n_entities < 2:
-            raise ValueError("Need at least two items for dendrogram clustering")
-        distance_vector, _similarity_pairs = item_distance_condensed(
-            data, config.distance
-        )
-        text_labels = _build_item_labels(request, data.entity_ids)
-    else:
-        n_entities = len(data.entity_ids)
-        entity_label = "variables"
-        if n_entities < 2:
-            raise ValueError("Need at least two variables for dendrogram clustering")
-        distance_vector, _similarity_pairs = variable_distance_condensed(
-            data.response_matrix, data.weights, config.distance
-        )
-        text_labels = _build_variable_labels(request, data.entity_ids)
-
+    n_entities = len(entity_ids)
     linkage_matrix = linkage(distance_vector, method=config.grouping.value)
 
     threshold_idx = len(linkage_matrix) - config.num_groups
@@ -166,7 +157,7 @@ def compute_dendrogram(
     )
 
     cluster_assignments = {
-        data.entity_ids[i]: int(flat_clusters[i]) for i in range(n_entities)
+        entity_ids[i]: int(flat_clusters[i]) for i in range(n_entities)
     }
 
     return DendrogramResult(
@@ -176,4 +167,50 @@ def compute_dendrogram(
         color_threshold=color_threshold,
         cluster_assignments=cluster_assignments,
         image_png_base64=base64.b64encode(png_bytes).decode("ascii"),
+    )
+
+
+def compute_dendrogram(
+    data: PreparedData,
+    request: AnalyzeRequest,
+    config: DendrogramConfig,
+    *,
+    entity: DendrogramEntity | None = None,
+) -> DendrogramResult:
+    if request.mode == Mode.MULTIPLE:
+        cluster_entity = entity or "items"
+        if cluster_entity == "items":
+            assert data.item_ids is not None
+            entity_ids = data.item_ids
+            if len(entity_ids) < 2:
+                raise ValueError("Need at least two items for dendrogram clustering")
+            distance_vector, _ = item_distance_condensed(data, config.distance)
+            text_labels = _build_item_labels(request, entity_ids)
+            entity_label = "items"
+        else:
+            assert data.variable_ids is not None
+            entity_ids = data.variable_ids
+            if len(entity_ids) < 2:
+                raise ValueError("Need at least two variables for dendrogram clustering")
+            distance_vector, _ = multiple_mode_variable_distance_condensed(
+                data, config.distance
+            )
+            text_labels = _build_variable_labels(request, entity_ids)
+            entity_label = "variables"
+    else:
+        entity_ids = data.entity_ids
+        if len(entity_ids) < 2:
+            raise ValueError("Need at least two variables for dendrogram clustering")
+        distance_vector, _ = variable_distance_condensed(
+            data.response_matrix, data.weights, config.distance
+        )
+        text_labels = _build_variable_labels(request, entity_ids)
+        entity_label = "variables"
+
+    return _compute_dendrogram_from_distances(
+        distance_vector,
+        entity_ids,
+        text_labels,
+        entity_label,
+        config,
     )

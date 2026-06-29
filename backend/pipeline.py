@@ -15,7 +15,12 @@ def run_analysis(request: AnalyzeRequest, data: PreparedData) -> AnalyzeResponse
 
     if request.outputs.dendrogram is not None:
         response["dendrogram"] = compute_dendrogram(
-            data, request, request.outputs.dendrogram
+            data, request, request.outputs.dendrogram, entity="items"
+        )
+
+    if request.outputs.dendrogram_variables is not None:
+        response["dendrogram_variables"] = compute_dendrogram(
+            data, request, request.outputs.dendrogram_variables, entity="variables"
         )
 
     if request.outputs.graph is not None:

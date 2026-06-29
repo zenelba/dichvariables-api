@@ -173,6 +173,40 @@ def item_distance_condensed(
     return jaccard_distance_condensed(item_matrix, axis_weights=expanded_weights), []
 
 
+def _build_variable_matrix(data: PreparedData) -> tuple[np.ndarray, np.ndarray]:
+    """Reshape multiple-mode data into (n_vars, n_cases * n_items) for variable clustering."""
+    assert data.item_ids is not None
+    assert data.variable_ids is not None
+    assert data.column_pairs is not None
+
+    n_vars = len(data.variable_ids)
+    n_items = len(data.item_ids)
+    var_matrix = np.zeros((n_vars, data.response_matrix.shape[0] * n_items), dtype=float)
+
+    for var_idx, var_id in enumerate(data.variable_ids):
+        col_indices = [
+            col_idx
+            for col_idx, (pair_var_id, _) in enumerate(data.column_pairs)
+            if pair_var_id == var_id
+        ]
+        block = data.response_matrix[:, col_indices]
+        var_matrix[var_idx] = block.ravel()
+
+    expanded_weights = np.tile(data.weights, n_items)
+    return var_matrix, expanded_weights
+
+
+def multiple_mode_variable_distance_condensed(
+    data: PreparedData,
+    metric: DistanceMetric,
+) -> tuple[np.ndarray, list[tuple[int, int, float]]]:
+    """Distances between variables, weighted by case weights across items."""
+    var_matrix, expanded_weights = _build_variable_matrix(data)
+    if metric == DistanceMetric.SIMPSON:
+        return simpson_distance_condensed(var_matrix, axis_weights=expanded_weights)
+    return jaccard_distance_condensed(var_matrix, axis_weights=expanded_weights), []
+
+
 def pairwise_distance_matrix_from_condensed(
     condensed: np.ndarray, n: int
 ) -> np.ndarray:
