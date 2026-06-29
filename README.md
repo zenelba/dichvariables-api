@@ -205,6 +205,7 @@ See **[docs/STATISTICS.md](docs/STATISTICS.md)** for:
 
 - **When to use Jaccard vs Simpson** (decision guide and use cases)
 - **How each metric is calculated** (formulas, weighted examples)
+- **Worked examples** with step-by-step element distances in single mode (variables) and multiple mode (items + variables)
 - How similarities apply to cases, variables, and items/brands
 
 **Short guide:**
