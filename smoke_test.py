@@ -2,6 +2,7 @@
 import base64
 import io
 import json
+import struct
 import sys
 
 import polars as pl
@@ -306,6 +307,53 @@ def test_explicit_weight_column():
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
 
 
+def test_dendrogram_custom_image_dimensions():
+    payload = {
+        "variables": {
+            "1": {"short_description": "A", "long_description": "Alpha"},
+            "2": {"short_description": "B", "long_description": "Beta"},
+        },
+        "mode": "single",
+        "weight_column": "wrakin1",
+        "outputs": {
+            "dendrogram": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+                "image_width": 1200,
+                "image_height": 800,
+                "image_dpi": 150,
+            }
+        },
+    }
+    df = pl.DataFrame(
+        {
+            "VAR_1": [1, 0, 1],
+            "VAR_2": [0, 1, 0],
+            "wrakin1": [1.0, 1.0, 1.0],
+        }
+    )
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 200, r.text
+    dendro = r.json()["dendrogram"]
+    assert dendro["image_width"] == 1200
+    assert dendro["image_height"] == 800
+    assert dendro["image_dpi"] == 150
+    png_bytes = base64.b64decode(dendro["image_png_base64"])
+    assert struct.unpack(">II", png_bytes[16:24]) == (1200, 800)
+
+
 if __name__ == "__main__":
     test_health()
     test_analyze_single_mode_var_columns()
@@ -314,5 +362,6 @@ if __name__ == "__main__":
     test_multiple_mode_missing_pair_column()
     test_validation_missing_groups()
     test_explicit_weight_column()
+    test_dendrogram_custom_image_dimensions()
     print("All smoke tests passed.")
     sys.exit(0)

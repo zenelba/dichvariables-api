@@ -37,6 +37,22 @@ class DendrogramConfig(BaseModel):
     distance: DistanceMetric
     grouping: GroupingMethod
     num_groups: int = Field(ge=2)
+    image_width: int | None = Field(
+        default=None,
+        ge=400,
+        description="Output PNG width in pixels (default: 2800 at dpi 200)",
+    )
+    image_height: int | None = Field(
+        default=None,
+        ge=400,
+        description="Output PNG height in pixels; auto from label count if omitted",
+    )
+    image_dpi: int = Field(
+        default=200,
+        ge=72,
+        le=600,
+        description="PNG resolution in dots per inch",
+    )
 
 
 class GraphConfig(BaseModel):
@@ -109,6 +125,9 @@ class DendrogramResult(BaseModel):
     num_groups: int
     color_threshold: float
     cluster_assignments: dict[int, int]
+    image_width: int
+    image_height: int
+    image_dpi: int
     image_png_base64: str
 
 

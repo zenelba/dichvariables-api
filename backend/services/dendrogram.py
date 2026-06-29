@@ -1,5 +1,6 @@
 import base64
 import io
+import struct
 from typing import Literal
 
 import matplotlib
@@ -46,6 +47,22 @@ def _build_item_labels(request: AnalyzeRequest, item_ids: list[int]) -> list[str
     return labels
 
 
+def _png_pixel_size(png_bytes: bytes) -> tuple[int, int]:
+    return struct.unpack(">II", png_bytes[16:24])
+
+
+def _resolve_figure_size(
+    config: DendrogramConfig, label_count: int
+) -> tuple[float, float, int]:
+    dpi = config.image_dpi
+    fig_width = (config.image_width / dpi) if config.image_width is not None else 14.0
+    if config.image_height is not None:
+        fig_height = config.image_height / dpi
+    else:
+        fig_height = max(10.0, label_count * 0.22)
+    return fig_width, fig_height, dpi
+
+
 def _render_dendrogram_png(
     linkage_matrix,
     labels: list[str],
@@ -53,9 +70,10 @@ def _render_dendrogram_png(
     distance_name: str,
     grouping_name: str,
     entity_label: str,
-) -> bytes:
-    fig_height = max(10, len(labels) * 0.22)
-    fig, ax = plt.subplots(figsize=(14, fig_height), facecolor="white")
+    config: DendrogramConfig,
+) -> tuple[bytes, int, int, int]:
+    fig_width, fig_height, dpi = _resolve_figure_size(config, len(labels))
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor="white")
 
     dendro_preview = scipy_dendrogram(
         linkage_matrix,
@@ -122,9 +140,17 @@ def _render_dendrogram_png(
     fig.tight_layout()
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=200, bbox_inches="tight", facecolor="white")
+    fixed_size = (
+        config.image_width is not None and config.image_height is not None
+    )
+    if fixed_size:
+        fig.savefig(buf, format="png", dpi=dpi, facecolor="white")
+    else:
+        fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    return buf.getvalue()
+    png_bytes = buf.getvalue()
+    width_px, height_px = _png_pixel_size(png_bytes)
+    return png_bytes, width_px, height_px, dpi
 
 
 def _compute_dendrogram_from_distances(
@@ -147,13 +173,14 @@ def _compute_dendrogram_from_distances(
         linkage_matrix, t=config.num_groups, criterion="maxclust"
     )
 
-    png_bytes = _render_dendrogram_png(
+    png_bytes, width_px, height_px, dpi = _render_dendrogram_png(
         linkage_matrix,
         text_labels,
         color_threshold,
         config.distance.value,
         config.grouping.value,
         entity_label,
+        config,
     )
 
     cluster_assignments = {
@@ -166,6 +193,9 @@ def _compute_dendrogram_from_distances(
         num_groups=config.num_groups,
         color_threshold=color_threshold,
         cluster_assignments=cluster_assignments,
+        image_width=width_px,
+        image_height=height_px,
+        image_dpi=dpi,
         image_png_base64=base64.b64encode(png_bytes).decode("ascii"),
     )
 

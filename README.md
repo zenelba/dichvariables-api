@@ -140,13 +140,21 @@ Each dendrogram config:
 {
   "distance": "jaccard",
   "grouping": "average",
-  "num_groups": 3
+  "num_groups": 3,
+  "image_width": 1200,
+  "image_height": 800,
+  "image_dpi": 150
 }
 ```
 
 - **`distance`:** `"jaccard"` or `"simpson"`
 - **`grouping`:** `"ward"`, `"complete"`, or `"average"` (dendrogram linkage only)
 - **`num_groups`:** Number of flat clusters for coloring / assignments
+- **`image_width`:** Optional PNG width in pixels (default: 2800 via 14″ × 200 dpi)
+- **`image_height`:** Optional PNG height in pixels; auto-scaled from label count if omitted
+- **`image_dpi`:** PNG resolution, 72–600 (default: 200)
+
+When both `image_width` and `image_height` are set, the PNG matches those dimensions exactly. The response includes `image_width`, `image_height`, and `image_dpi` alongside `image_png_base64`.
 
 ### Example — multiple mode
 
@@ -185,7 +193,7 @@ Required columns: `IM1_11_2`, `IM1_11_5`, `IM1_12_2`, `IM1_12_5`, `wrakin2`.
 | Field | Content |
 |-------|---------|
 | `segmentation` | `{num_segments, assignments}` — row index → segment ID |
-| `dendrogram` | Items (multiple) or variables (single): config, `cluster_assignments`, `image_png_base64` |
+| `dendrogram` | Items (multiple) or variables (single): config, `cluster_assignments`, `image_width`, `image_height`, `image_dpi`, `image_png_base64` |
 | `dendrogram_variables` | Variables (multiple mode only): same shape as `dendrogram` |
 | `graph` | `{distance, nodes, edges}` — edges are pairwise case distances |
 
