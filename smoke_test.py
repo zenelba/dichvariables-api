@@ -215,6 +215,12 @@ def test_multiple_mode_missing_pair_column():
         },
     )
     assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["found_pairs"] == [[1, 101], [1, 102], [2, 101]]
+    assert detail["found_variable_ids"] == [1, 2]
+    assert detail["found_item_ids"] == [101, 102]
+    assert [2, 102] in detail["missing_pairs"]
+    assert "columns_in_file" in detail
 
 
 def test_validation_missing_groups():

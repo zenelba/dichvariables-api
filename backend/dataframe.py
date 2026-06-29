@@ -81,6 +81,64 @@ def entity_column_name(
     return f"{prefix}_{variable_id}_{item_id}"
 
 
+def _single_mode_column_error_detail(
+    *,
+    message: str,
+    columns: list[str],
+    entity_cols: dict[int, str],
+    expected: set[int] | None = None,
+    missing: set[int] | None = None,
+    extra: set[int] | None = None,
+) -> dict:
+    found_ids = sorted(entity_cols.keys())
+    detail: dict = {
+        "message": message,
+        "columns_in_file": columns,
+        "found_variable_ids": found_ids,
+        "found_entity_columns": {str(k): v for k, v in sorted(entity_cols.items())},
+    }
+    if expected is not None:
+        detail["expected_variable_ids"] = sorted(expected)
+    if missing is not None:
+        detail["missing_variable_ids"] = sorted(missing)
+    if extra is not None:
+        detail["unexpected_variable_ids"] = sorted(extra)
+    return detail
+
+
+def _multiple_mode_column_error_detail(
+    *,
+    message: str,
+    columns: list[str],
+    entity_cols: dict[tuple[int, int], str],
+    prefix: str,
+    expected: set[tuple[int, int]] | None = None,
+    missing: set[tuple[int, int]] | None = None,
+    extra: set[tuple[int, int]] | None = None,
+) -> dict:
+    found_pairs = sorted(entity_cols.keys())
+    found_variable_ids = sorted({var_id for var_id, _ in found_pairs})
+    found_item_ids = sorted({item_id for _, item_id in found_pairs})
+    detail: dict = {
+        "message": message,
+        "columns_in_file": columns,
+        "found_pairs": [list(pair) for pair in found_pairs],
+        "found_entity_columns": {
+            entity_column_name(var_id, item_id, prefix): col_name
+            for (var_id, item_id), col_name in sorted(entity_cols.items())
+        },
+        "found_variable_ids": found_variable_ids,
+        "found_item_ids": found_item_ids,
+    }
+    if expected is not None:
+        detail["expected_pairs"] = [list(pair) for pair in sorted(expected)]
+    if missing is not None:
+        detail["missing_pairs"] = [list(pair) for pair in sorted(missing)]
+    if extra is not None:
+        detail["unexpected_pairs"] = [list(pair) for pair in sorted(extra)]
+    return detail
+
+
 def _column_to_float_numpy(column: pa.ChunkedArray) -> np.ndarray:
     arr = column.cast(pa.float64())
     out = np.empty(len(arr), dtype=float)
@@ -108,15 +166,29 @@ def _prepare_single_mode(
     if missing:
         raise HTTPException(
             status_code=422,
-            detail=f"Missing columns for IDs: {sorted(missing)} "
-            f"(expected VAR_{min(missing)} format)",
+            detail=_single_mode_column_error_detail(
+                message=(
+                    f"Missing columns for IDs: {sorted(missing)} "
+                    f"(expected VAR_{min(missing)} format)"
+                ),
+                columns=columns,
+                entity_cols=entity_cols,
+                expected=expected,
+                missing=missing,
+            ),
         )
 
     extra = set(entity_cols.keys()) - expected
     if extra:
         raise HTTPException(
             status_code=422,
-            detail=f"Unexpected entity columns for IDs: {sorted(extra)}",
+            detail=_single_mode_column_error_detail(
+                message=f"Unexpected entity columns for IDs: {sorted(extra)}",
+                columns=columns,
+                entity_cols=entity_cols,
+                expected=expected,
+                extra=extra,
+            ),
         )
 
     non_entity_columns = [
@@ -188,15 +260,31 @@ def _prepare_multiple_mode(
         example = min(missing)
         raise HTTPException(
             status_code=422,
-            detail=f"Missing columns for pairs: {sorted(missing)} "
-            f"(expected {entity_column_name(example[0], example[1], prefix)} format)",
+            detail=_multiple_mode_column_error_detail(
+                message=(
+                    f"Missing columns for pairs: {sorted(missing)} "
+                    f"(expected {entity_column_name(example[0], example[1], prefix)} format)"
+                ),
+                columns=columns,
+                entity_cols=entity_cols,
+                prefix=prefix,
+                expected=expected,
+                missing=missing,
+            ),
         )
 
     extra = set(entity_cols.keys()) - expected
     if extra:
         raise HTTPException(
             status_code=422,
-            detail=f"Unexpected entity columns for pairs: {sorted(extra)}",
+            detail=_multiple_mode_column_error_detail(
+                message=f"Unexpected entity columns for pairs: {sorted(extra)}",
+                columns=columns,
+                entity_cols=entity_cols,
+                prefix=prefix,
+                expected=expected,
+                extra=extra,
+            ),
         )
 
     non_entity_columns = [
