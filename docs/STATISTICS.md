@@ -269,21 +269,210 @@ After condensed distances are computed:
 3. **Color threshold** is derived from the linkage matrix for branch coloring in the PNG.
 4. Labels come from payload descriptions (`variables` or `items`; variables may include group prefix).
 
-## 6. Worked example (multiple mode)
+## 6. Worked examples: element distances in single vs multiple mode
 
-Data:
+This section shows **how profiles are built** and **how pairwise distances are computed** for dendrogram elements, using the same Jaccard/Simpson formulas from above.
 
-| Case | IM1_11_2 | IM1_12_2 | weight |
-|------|----------|----------|--------|
-| 1 | 1 | 0 | 1.0 |
-| 2 | 0 | 1 | 2.0 |
+General rule for any pair of elements \(A\) and \(B\):
 
-- **Item 11** profile (var 2 only): `[1, 0]` → flattened with weight `[1, 2]` → weighted vector `[1, 0]`
-- **Item 12** profile: `[0, 1]` → weighted vector `[0, 2]`
+1. Build binary profile vectors \(a\) and \(b\) (same length, same weight vector \(u\))
+2. Compute \(|a| = \sum_k u_k a_k\), \(|b| = \sum_k u_k b_k\), \(|a \cap b| = \sum_k u_k a_k b_k\)
+3. **Jaccard:** \(d = 1 - |a \cap b| / (|a| + |b| - |a \cap b|)\)
+4. **Simpson:** \(d = 1 - |a \cap b| / \min(|a|, |b|)\)
 
-Jaccard between items: intersection = 0, union = 1 + 2 = 3 → similarity = 0 → distance = 1.
+---
 
-- **Variable 2** profile: both items, both cases → vector `[1, 0, 0, 1]` with expanded weights `[1, 2, 1, 2]`.
+### 6.1 Single mode — distance between two **variables**
+
+**Setup:** `mode: "single"`. Columns `VAR_1`, `VAR_2`. Dendrogram compares **variables** (columns).
+
+| Case | VAR_1 | VAR_2 | weight \(w_i\) |
+|------|-------|-------|----------------|
+| 1 | 1 | 1 | 1.0 |
+| 2 | 1 | 0 | 2.0 |
+| 3 | 0 | 1 | 1.0 |
+
+Response matrix \(X\) is \(3 \times 2\). For dendrogram, transpose so each **variable is a row** across cases:
+
+| | case 1 | case 2 | case 3 |
+|---|--------|--------|--------|
+| **Variable 1** \(a\) | 1 | 1 | 0 |
+| **Variable 2** \(b\) | 1 | 0 | 1 |
+
+Axis weights: \(u = (w_1, w_2, w_3) = (1.0, 2.0, 1.0)\)
+
+**Step 1 — weighted sizes**
+
+\[
+|a| = 1\cdot1 + 1\cdot2 + 0\cdot1 = 3
+\]
+
+\[
+|b| = 1\cdot1 + 0\cdot2 + 1\cdot1 = 2
+\]
+
+**Step 2 — weighted intersection** (only case 1 has both variables = 1)
+
+\[
+|a \cap b| = 1\cdot1 = 1
+\]
+
+**Step 3 — Jaccard distance (Var 1 vs Var 2)**
+
+\[
+|a \cup b| = 3 + 2 - 1 = 4
+\]
+
+\[
+\text{sim}_\text{Jaccard} = \frac{1}{4} = 0.25 \quad\Rightarrow\quad d_\text{Jaccard} = 0.75
+\]
+
+**Step 4 — Simpson distance**
+
+\[
+\text{sim}_\text{Simpson} = \frac{1}{\min(3,2)} = \frac{1}{2} = 0.5 \quad\Rightarrow\quad d_\text{Simpson} = 0.5
+\]
+
+Case 2 has weight 2.0 and only variable 1 active — it contributes more to \(|a|\) than to \(|b|\), so the two variables look less similar under Jaccard than under Simpson.
+
+---
+
+### 6.2 Multiple mode — distance between two **items** (brands)
+
+**Setup:** `mode: "multiple"`, `column_prefix: "IM1"`. Columns `{prefix}_{item}_{variable}`.
+
+| Case | IM1_11_2 | IM1_11_5 | IM1_12_2 | IM1_12_5 | weight |
+|------|----------|----------|----------|----------|--------|
+| 1 | 1 | 1 | 0 | 0 | 1.0 |
+| 2 | 0 | 1 | 1 | 0 | 2.0 |
+
+Items: **11**, **12**. Variables: **2**, **5**.
+
+**Step 1 — build item profiles** (flatten each item’s \(n \times V\) block row-wise)
+
+Item **11** (columns `IM1_11_2`, `IM1_11_5`):
+
+\[
+\begin{bmatrix} 1 & 1 \\ 0 & 1 \end{bmatrix}
+\xrightarrow{\text{flatten}}
+a = [1,\, 1,\, 0,\, 1]
+\]
+
+(positions: case1-var2, case1-var5, case2-var2, case2-var5)
+
+Item **12** (columns `IM1_12_2`, `IM1_12_5`):
+
+\[
+\begin{bmatrix} 0 & 0 \\ 1 & 0 \end{bmatrix}
+\xrightarrow{\text{flatten}}
+b = [0,\, 0,\, 1,\, 0]
+\]
+
+**Step 2 — expanded weights** (repeat each case weight once per variable: \(V=2\))
+
+\[
+u = [w_1, w_1, w_2, w_2] = [1.0,\, 1.0,\, 2.0,\, 2.0]
+\]
+
+**Step 3 — weighted sizes**
+
+\[
+|a| = 1\cdot1 + 1\cdot1 + 0\cdot2 + 1\cdot2 = 4
+\]
+
+\[
+|b| = 0 + 0 + 1\cdot2 + 0 = 2
+\]
+
+**Step 4 — weighted intersection** (no position where both \(a_k = b_k = 1\))
+
+\[
+|a \cap b| = 0
+\]
+
+**Step 5 — Jaccard distance (Item 11 vs Item 12)**
+
+\[
+|a \cup b| = 4 + 2 - 0 = 6 \quad\Rightarrow\quad \text{sim} = 0 \quad\Rightarrow\quad d_\text{Jaccard} = 1.0
+\]
+
+The brands share no active trait×case positions — maximum distance.
+
+---
+
+### 6.3 Multiple mode — distance between two **variables** (traits)
+
+Same table as §6.2. Dendrogram `dendrogram_variables` compares **variables**.
+
+**Step 1 — build variable profiles** (flatten each variable’s \(n \times B\) block row-wise)
+
+Variable **2** (columns `IM1_11_2`, `IM1_12_2`):
+
+\[
+\begin{bmatrix} 1 & 0 \\ 0 & 1 \end{bmatrix}
+\xrightarrow{\text{flatten}}
+a = [1,\, 0,\, 0,\, 1]
+\]
+
+(positions: case1-item11, case1-item12, case2-item11, case2-item12)
+
+Variable **5** (columns `IM1_11_5`, `IM1_12_5`):
+
+\[
+\begin{bmatrix} 1 & 0 \\ 1 & 0 \end{bmatrix}
+\xrightarrow{\text{flatten}}
+b = [1,\, 0,\, 1,\, 0]
+\]
+
+**Step 2 — expanded weights** (repeat each case weight once per item: \(B=2\))
+
+\[
+u = [w_1, w_1, w_2, w_2] = [1.0,\, 1.0,\, 2.0,\, 2.0]
+\]
+
+**Step 3 — weighted sizes**
+
+\[
+|a| = 1\cdot1 + 0 + 0 + 1\cdot2 = 3
+\]
+
+\[
+|b| = 1\cdot1 + 0 + 1\cdot2 + 0 = 3
+\]
+
+**Step 4 — weighted intersection** (case 1, item 11: both traits active)
+
+\[
+|a \cap b| = 1\cdot1 = 1
+\]
+
+**Step 5 — Jaccard distance (Variable 2 vs Variable 5)**
+
+\[
+|a \cup b| = 3 + 3 - 1 = 5 \quad\Rightarrow\quad \text{sim} = \frac{1}{5} = 0.2 \quad\Rightarrow\quad d_\text{Jaccard} = 0.8
+\]
+
+**Step 6 — Simpson distance**
+
+\[
+\text{sim}_\text{Simpson} = \frac{1}{\min(3,3)} = \frac{1}{3} \approx 0.33 \quad\Rightarrow\quad d_\text{Simpson} \approx 0.67
+\]
+
+---
+
+### 6.4 Summary: what differs between single and multiple mode
+
+| | **Single mode** | **Multiple mode (items)** | **Multiple mode (variables)** |
+|---|-----------------|---------------------------|-------------------------------|
+| **Dendrogram output** | `dendrogram` | `dendrogram` | `dendrogram_variables` |
+| **Elements compared** | Variables | Items (brands) | Variables (traits) |
+| **Profile length** | \(n\) (cases) | \(n \times V\) (cases × variables) | \(n \times B\) (cases × items) |
+| **Weight vector** | \((w_1,\ldots,w_n)\) | each \(w_i\) repeated \(V\) times | each \(w_i\) repeated \(B\) times |
+| **Distance formula** | Jaccard or Simpson on profiles | same | same |
+
+Case-to-case distances (segmentation, graph) use the **full row** of the response matrix in both modes; in multiple mode that row spans all `{item × variable}` columns.
+
+---
 
 ## 7. Implementation reference
 
