@@ -20,7 +20,7 @@ from backend.services.distances import (
 )
 
 DendrogramEntity = Literal["items", "variables"]
-LEAF_FONT_SIZE = 10.5  # 1.5× previous default of 7
+LEAF_FONT_SIZE = 12.6  # 1.5× base 7, then +20%
 CAPTION_FONT_SIZE = 8
 
 
@@ -78,7 +78,8 @@ def _render_dendrogram_png(
     fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor="white")
     caption = (
         f"Hierarchical clustering of {entity_label} "
-        f"(Similarity: {distance_name.upper()}, Linkage: {grouping_name.upper()})"
+        f"(Similarity: {distance_name.upper()}, Linkage: {grouping_name.upper()}, "
+        f"Groups: {config.num_groups})"
     )
 
     dendro_preview = scipy_dendrogram(
@@ -137,15 +138,18 @@ def _render_dendrogram_png(
             label.set_fontweight("bold")
             label.set_fontsize(LEAF_FONT_SIZE)
 
+    for label in ax.get_yticklabels():
+        label.set_fontsize(LEAF_FONT_SIZE)
+
     ax.set_ylabel("")
     ax.set_facecolor("white")
     ax.set_axisbelow(True)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     fig.text(
-        0.5,
+        0.99,
         0.01,
         caption,
-        ha="center",
+        ha="right",
         va="bottom",
         fontsize=CAPTION_FONT_SIZE,
         color="#555555",
