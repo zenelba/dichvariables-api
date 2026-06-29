@@ -88,6 +88,7 @@ def _render_dendrogram_png(
     linkage_matrix,
     labels: list[str],
     flat_clusters: np.ndarray,
+    color_threshold: float,
     distance_name: str,
     grouping_name: str,
     entity_label: str,
@@ -159,6 +160,15 @@ def _render_dendrogram_png(
     for label in ax.get_yticklabels():
         label.set_fontsize(LEAF_FONT_SIZE)
 
+    ax.axvline(
+        color_threshold,
+        color="#222222",
+        linestyle="--",
+        linewidth=1.5,
+        alpha=0.9,
+        zorder=5,
+    )
+
     ax.set_ylabel("")
     ax.set_facecolor("white")
     ax.set_axisbelow(True)
@@ -211,6 +221,7 @@ def _compute_dendrogram_from_distances(
         linkage_matrix,
         text_labels,
         flat_clusters,
+        color_threshold,
         config.distance.value,
         config.grouping.value,
         entity_label,
