@@ -15,35 +15,167 @@ This document describes how the DichVariables API computes similarities and dist
 
 All non-zero cell values are converted to 1 before analysis.
 
-## Distance metrics
+## Distance metrics — overview
 
-Two similarity metrics are available. The API returns **distance** = **1 − similarity**.
+Two similarity metrics are available in the payload (`"distance": "jaccard"` or `"simpson"`).  
+The API always returns **distance** = **1 − similarity** (0 = identical profiles, 1 = no overlap).
 
-### Jaccard similarity (weighted)
+Both metrics:
 
-For two binary vectors \(a\) and \(b\) with non-negative weights \(u_k\) on each position \(k\):
+- Work on **binary** 0/1 profiles (presence/absence)
+- Support **case weights** on each position
+- Apply to cases, variables, and items — the formula is the same; only the profile being compared changes
 
-1. Weighted presence on each vector:
-   - \(|a| = \sum_k u_k \cdot a_k\)
-   - \(|b| = \sum_k u_k \cdot b_k\)
-2. Weighted intersection:
-   - \(|a \cap b| = \sum_k u_k \cdot a_k \cdot b_k\)
-3. Weighted union:
-   - \(|a \cup b| = |a| + |b| - |a \cap b|\)
-4. Similarity:
-   - \(\text{sim}_\text{Jaccard} = |a \cap b| / |a \cup b|\) if union > 0, else 0
-5. Distance:
-   - \(d = 1 - \text{sim}_\text{Jaccard}\)
+---
 
-### Simpson similarity (weighted)
+## When to use Jaccard vs Simpson
 
-Uses the same weighted intersection, but normalizes by the **smaller** weighted size:
+### Jaccard — symmetric “how alike are they overall?”
 
-1. \(\text{sim}_\text{Simpson} = |a \cap b| / \min(|a|, |b|)\) if \(\min(|a|,|b|) > 0\)
-2. If both sizes are 0, similarity = 1; if exactly one is 0, similarity = 0
-3. Distance: \(d = 1 - \text{sim}_\text{Simpson}\)
+**Use Jaccard when:**
 
-Simpson emphasizes overlap relative to the smaller profile (asymmetric in interpretation).
+- You want a **balanced, symmetric** measure — A vs B gives the same result as B vs A
+- **Both** unique presences **and** unique absences should reduce similarity
+- Profiles have **similar size** (similar number of 1s)
+- You are comparing **respondent segments**, **brand maps**, or **trait structures** where neither side is expected to be a subset of the other
+
+**Typical use cases in this API:**
+
+| Output | Why Jaccard |
+|--------|-------------|
+| **Segmentation** (cases) | Find respondent groups with broadly similar overall response patterns |
+| **Graph** (cases) | Explore pairwise case similarity without subset bias |
+| **Dendrogram** (brands) | Cluster brands that share traits *and* lack traits together |
+| **Dendrogram** (variables) | Cluster traits with similar brand association patterns |
+
+**Intuition:** Jaccard answers *“What share of all positions where either profile is active do they share?”*
+
+---
+
+### Simpson — “how much does the smaller profile fit inside the larger?”
+
+**Use Simpson when:**
+
+- One profile is often a **subset** of another (fewer 1s, narrower trait set, smaller brand footprint)
+- You care about **coverage of the smaller profile**, not penalizing the larger one for extra 1s
+- You want to detect **containment** or **nested** structure (e.g. “Brand A’s associations are mostly included in Brand B’s”)
+
+**Typical use cases:**
+
+| Output | Why Simpson |
+|--------|-------------|
+| **Dendrogram** (brands) | A niche brand looks similar to a large brand if the niche’s traits are mostly a subset |
+| **Dendrogram** (variables) | A narrow trait is “close to” a broad trait if it co-occurs wherever the narrow one does |
+| **Segmentation / graph** | When cases differ strongly in how many attributes they activate, and subset-like groups are meaningful |
+
+**Intuition:** Simpson answers *“What share of the **smaller** profile is shared?”*  
+Extra 1s on the larger profile alone do **not** reduce similarity.
+
+**Note:** Simpson is **asymmetric in meaning** (though the API computes one number per unordered pair using the smaller profile as denominator for both). Interpret results as “overlap relative to the sparser entity.”
+
+---
+
+### Quick decision guide
+
+```
+Do profiles often differ in how many 1s they have?
+├── No, similar “density”        → prefer Jaccard
+└── Yes, one often ⊆ the other   → prefer Simpson
+
+Is symmetric comparison important?
+├── Yes                          → Jaccard
+└── No, subset/containment OK    → Simpson
+
+Default when unsure               → Jaccard (most common for market-structure maps)
+```
+
+---
+
+## How Jaccard and Simpson are calculated
+
+### Setup
+
+Compare two binary vectors \(a\) and \(b\) (same length), with optional non-negative weight \(u_k\) on each position \(k\).
+
+**Weighted size** (total weighted mass of 1s):
+
+\[
+|a| = \sum_k u_k \cdot a_k, \quad |b| = \sum_k u_k \cdot b_k
+\]
+
+**Weighted intersection** (mass where both are 1):
+
+\[
+|a \cap b| = \sum_k u_k \cdot a_k \cdot b_k
+\]
+
+**Weighted union** (Jaccard only):
+
+\[
+|a \cup b| = |a| + |b| - |a \cap b|
+\]
+
+Without case weights, set \(u_k = 1\) everywhere.
+
+### Jaccard
+
+\[
+\text{sim}_\text{Jaccard} = \frac{|a \cap b|}{|a \cup b|}
+\quad\text{(0 if union = 0)}
+\]
+
+\[
+d_\text{Jaccard} = 1 - \text{sim}_\text{Jaccard}
+\]
+
+### Simpson
+
+\[
+\text{sim}_\text{Simpson} = \frac{|a \cap b|}{\min(|a|, |b|)}
+\quad\text{(1 if both sizes = 0; 0 if exactly one size = 0)}
+\]
+
+\[
+d_\text{Simpson} = 1 - \text{sim}_\text{Simpson}
+\]
+
+### Numeric example (unweighted)
+
+Profiles over 10 positions:
+
+| | Positions with 1 |
+|---|------------------|
+| Brand A | `{1,2,3,4,5}` → size 5 |
+| Brand B | `{1,2,3,6,7}` → size 5 |
+| Brand C | `{1,2,3}` → size 3 (subset of A) |
+
+**A vs B:** intersection = 3, union = 7  
+- Jaccard sim = 3/7 ≈ **0.43** → distance **0.57**  
+- Simpson sim = 3/5 = **0.60** → distance **0.40** (same min size)
+
+**A vs C:** intersection = 3, union = 5  
+- Jaccard sim = 3/5 = **0.60** → distance **0.40**  
+- Simpson sim = 3/3 = **1.00** → distance **0.00** (C is fully contained in A)
+
+Here Simpson treats C as perfectly similar to A (subset), while Jaccard still penalizes A’s extra 1s `{4,5}`.
+
+### Numeric example (with case weights)
+
+Two cases, one variable each (simplified item comparison):
+
+| Position | \(a\) | \(b\) | weight \(u\) |
+|----------|-------|-------|----------------|
+| case 1 | 1 | 1 | 1.0 |
+| case 2 | 1 | 0 | 2.0 |
+
+\(|a| = 1\cdot1 + 2\cdot1 = 3\), \(|b| = 1\cdot1 + 2\cdot0 = 1\), \(|a \cap b| = 1\)
+
+- Jaccard: union = 3 + 1 − 1 = 3 → sim = 1/3 → **distance 0.67**
+- Simpson: min size = 1 → sim = 1/1 = 1 → **distance 0.00**
+
+The heavy-weight case where only \(a\) is 1 drives Jaccard down; Simpson only asks whether the smaller profile (\(b\)) is covered.
+
+---
 
 ## Case weights
 
@@ -153,16 +285,7 @@ Jaccard between items: intersection = 0, union = 1 + 2 = 3 → similarity = 0 �
 
 - **Variable 2** profile: both items, both cases → vector `[1, 0, 0, 1]` with expanded weights `[1, 2, 1, 2]`.
 
-## 7. Choosing a metric
-
-| Metric | When to use |
-|--------|-------------|
-| **Jaccard** | Symmetric comparison; penalizes both unique presence and unique absence |
-| **Simpson** | Overlap relative to the smaller profile; useful when one profile is a subset of another |
-
-Both respect case weights throughout.
-
-## 8. Implementation reference
+## 7. Implementation reference
 
 | Function | File | Purpose |
 |----------|------|---------|

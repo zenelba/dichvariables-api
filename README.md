@@ -193,22 +193,20 @@ Dendrogram PNG is UTF-8 base64 in `image_png_base64`.
 
 ## Similarity and distance calculations
 
-See **[docs/STATISTICS.md](docs/STATISTICS.md)** for formulas and how similarities are computed for:
+See **[docs/STATISTICS.md](docs/STATISTICS.md)** for:
 
-- Cases (segmentation & graph)
-- Variables (single mode and `dendrogram_variables`)
-- Items / brands (`dendrogram` in multiple mode)
+- **When to use Jaccard vs Simpson** (decision guide and use cases)
+- **How each metric is calculated** (formulas, weighted examples)
+- How similarities apply to cases, variables, and items/brands
 
-Summary:
+**Short guide:**
 
-| Analysis | Entities compared | Input profile |
-|----------|-------------------|---------------|
-| Segmentation / graph | Cases (rows) | Full 0/1 vector per case |
-| Dendrogram (single) | Variables | Column vector across cases |
-| Dendrogram (multiple, items) | Brands | All traits × cases for that brand |
-| Dendrogram (multiple, variables) | Traits | All brands × cases for that trait |
+| Metric | Use when |
+|--------|----------|
+| **Jaccard** | Symmetric comparison; profiles have similar “density”; penalize differences in both presence and absence. **Default choice.** |
+| **Simpson** | One profile is often a **subset** of another; you care how well the smaller profile is contained in the larger. |
 
-Both **Jaccard** and **Simpson** metrics are supported; distances are `1 − similarity`.
+Both return **distance = 1 − similarity** and respect case weights.
 
 ## Python examples
 
