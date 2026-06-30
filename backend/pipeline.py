@@ -1,5 +1,6 @@
 from backend.dataframe import PreparedData
 from backend.models import AnalyzeRequest, AnalyzeResponse
+from backend.services.brand_associations import compute_brand_associations
 from backend.services.dendrogram import compute_dendrogram
 from backend.services.graph import compute_graph
 from backend.services.segmentation import compute_segmentation
@@ -25,5 +26,10 @@ def run_analysis(request: AnalyzeRequest, data: PreparedData) -> AnalyzeResponse
 
     if request.outputs.graph is not None:
         response["graph"] = compute_graph(data, request.outputs.graph)
+
+    if request.outputs.brand_associations is not None:
+        response["brand_associations"] = compute_brand_associations(
+            data, request, request.outputs.brand_associations
+        )
 
     return AnalyzeResponse(**response)

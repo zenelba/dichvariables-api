@@ -122,6 +122,7 @@ def test_analyze_multiple_mode():
                 "num_groups": 2,
             },
             "graph": {"distance": "jaccard"},
+            "brand_associations": {},
         },
     }
 
@@ -163,6 +164,20 @@ def test_analyze_multiple_mode():
     assert var_png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
     assert set(var_dendro["cluster_assignments"].keys()) == {"1", "2"}
     assert len(body["graph"]["edges"]) == 3
+
+    assoc = body["brand_associations"]
+    assert "image_png_base64" in assoc
+    assoc_png = base64.b64decode(assoc["image_png_base64"])
+    assert assoc_png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert assoc["variable_ids"] == [1, 2]
+    assert assoc["item_ids"] == [101, 102]
+    expected = [
+        [2.5 / 4.5, 3.5 / 4.5],
+        [3.0 / 4.5, 1.0 / 4.5],
+    ]
+    for row, exp_row in zip(assoc["values"], expected):
+        for val, exp in zip(row, exp_row):
+            assert abs(val - exp) < 1e-9
 
 
 def test_multiple_mode_missing_column_prefix():
@@ -395,6 +410,30 @@ def test_dendrogram_colors_match_num_groups():
     assert len(set(dendro["cluster_assignments"].values())) == 14
 
 
+def test_brand_associations_rejected_in_single_mode():
+    payload = {
+        "variables": {
+            "1": {"short_description": "V1", "long_description": "Var 1"},
+        },
+        "mode": "single",
+        "outputs": {"brand_associations": {}},
+    }
+    df = pl.DataFrame({"VAR_1": [1, 0, 1], "weight": [1.0, 1.0, 1.0]})
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 422
+
+
 if __name__ == "__main__":
     test_health()
     test_analyze_single_mode_var_columns()
@@ -405,5 +444,6 @@ if __name__ == "__main__":
     test_explicit_weight_column()
     test_dendrogram_custom_image_dimensions()
     test_dendrogram_colors_match_num_groups()
+    test_brand_associations_rejected_in_single_mode()
     print("All smoke tests passed.")
     sys.exit(0)

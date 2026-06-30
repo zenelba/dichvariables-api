@@ -59,11 +59,31 @@ class GraphConfig(BaseModel):
     distance: DistanceMetric
 
 
+class BrandAssociationsConfig(BaseModel):
+    image_width: int | None = Field(
+        default=None,
+        ge=400,
+        description="Output PNG width in pixels (default: auto from brand count)",
+    )
+    image_height: int | None = Field(
+        default=None,
+        ge=400,
+        description="Output PNG height in pixels (default: auto from variable count)",
+    )
+    image_dpi: int = Field(
+        default=200,
+        ge=72,
+        le=600,
+        description="PNG resolution in dots per inch",
+    )
+
+
 class OutputsConfig(BaseModel):
     segmentation: SegmentationConfig | None = None
     dendrogram: DendrogramConfig | None = None
     dendrogram_variables: DendrogramConfig | None = None
     graph: GraphConfig | None = None
+    brand_associations: BrandAssociationsConfig | None = None
 
     @model_validator(mode="after")
     def at_least_one_output(self) -> "OutputsConfig":
@@ -73,6 +93,7 @@ class OutputsConfig(BaseModel):
                 self.dendrogram,
                 self.dendrogram_variables,
                 self.graph,
+                self.brand_associations,
             ]
         ):
             raise ValueError("At least one output type must be requested")
@@ -111,6 +132,8 @@ class AnalyzeRequest(BaseModel):
                 raise ValueError("column_prefix is required when mode is 'multiple'")
             if "_" in self.column_prefix:
                 raise ValueError("column_prefix must not contain underscores")
+        elif self.outputs.brand_associations is not None:
+            raise ValueError("brand_associations output requires mode 'multiple'")
         return self
 
 
@@ -147,11 +170,22 @@ class GraphResult(BaseModel):
     edges: list[GraphEdge]
 
 
+class BrandAssociationsResult(BaseModel):
+    variable_ids: list[int]
+    item_ids: list[int]
+    values: list[list[float]]
+    image_width: int
+    image_height: int
+    image_dpi: int
+    image_png_base64: str
+
+
 class AnalyzeResponse(BaseModel):
     segmentation: SegmentationResult | None = None
     dendrogram: DendrogramResult | None = None
     dendrogram_variables: DendrogramResult | None = None
     graph: GraphResult | None = None
+    brand_associations: BrandAssociationsResult | None = None
 
     @model_validator(mode="before")
     @classmethod

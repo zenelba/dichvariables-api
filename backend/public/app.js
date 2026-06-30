@@ -65,6 +65,7 @@ const EXAMPLE_PAYLOAD_MULTIPLE = {
       num_groups: 2,
     },
     graph: { distance: "jaccard" },
+    brand_associations: {},
   },
 };
 
@@ -162,6 +163,37 @@ function renderResults(data) {
       null,
       2,
     );
+    resultsEl.appendChild(card);
+  }
+
+  if (data.brand_associations) {
+    const a = data.brand_associations;
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <h2>Brand associations</h2>
+      <div class="meta-row">
+        <span>Variables: <strong>${a.variable_ids.length}</strong></span>
+        <span>Brands: <strong>${a.item_ids.length}</strong></span>
+      </div>
+      <img class="dendrogram-img" alt="Brand associations" src="data:image/png;base64,${a.image_png_base64}" />
+      <div class="actions">
+        <button type="button" id="download-assoc-png">Download PNG</button>
+      </div>
+      <h2 style="margin-top:1.25rem">Association rates</h2>
+      <pre class="json-out"></pre>
+    `;
+    card.querySelector("pre").textContent = JSON.stringify(
+      { variable_ids: a.variable_ids, item_ids: a.item_ids, values: a.values },
+      null,
+      2,
+    );
+    card.querySelector("#download-assoc-png").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.href = `data:image/png;base64,${a.image_png_base64}`;
+      link.download = "brand_associations.png";
+      link.click();
+    });
     resultsEl.appendChild(card);
   }
 
