@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from backend.dataframe import PreparedData
-from backend.models import AnalyzeRequest, BrandAssociationsConfig, BrandAssociationsResult, Mode
+from backend.models import AnalyzeRequest, AssociationsMatrixConfig, AssociationsMatrixResult, Mode
 from backend.services.dendrogram import _build_item_labels, _build_variable_labels
 
 VALUE_FONT_SIZE = 8
@@ -24,7 +24,7 @@ def _png_pixel_size(png_bytes: bytes) -> tuple[int, int]:
 
 
 def _resolve_figure_size(
-    config: BrandAssociationsConfig, n_vars: int, n_items: int
+    config: AssociationsMatrixConfig, n_vars: int, n_items: int
 ) -> tuple[float, float, int]:
     dpi = config.image_dpi
     if config.image_width is not None:
@@ -62,7 +62,7 @@ def _render_association_matrix_png(
     matrix: np.ndarray,
     variable_labels: list[str],
     item_labels: list[str],
-    config: BrandAssociationsConfig,
+    config: AssociationsMatrixConfig,
 ) -> tuple[bytes, int, int, int]:
     n_vars, n_items = matrix.shape
     fig_width, fig_height, dpi = _resolve_figure_size(config, n_vars, n_items)
@@ -140,13 +140,13 @@ def _render_association_matrix_png(
     return png_bytes, width_px, height_px, dpi
 
 
-def compute_brand_associations(
+def compute_associations_matrix(
     data: PreparedData,
     request: AnalyzeRequest,
-    config: BrandAssociationsConfig,
-) -> BrandAssociationsResult:
+    config: AssociationsMatrixConfig,
+) -> AssociationsMatrixResult:
     if request.mode != Mode.MULTIPLE:
-        raise ValueError("brand_associations output requires mode 'multiple'")
+        raise ValueError("associations_matrix output requires mode 'multiple'")
     assert data.variable_ids is not None
     assert data.item_ids is not None
 
@@ -163,7 +163,7 @@ def compute_brand_associations(
 
     values = [[float(matrix[vi, ii]) for ii in range(len(data.item_ids))] for vi in range(len(data.variable_ids))]
 
-    return BrandAssociationsResult(
+    return AssociationsMatrixResult(
         variable_ids=data.variable_ids,
         item_ids=data.item_ids,
         values=values,

@@ -122,7 +122,7 @@ def test_analyze_multiple_mode():
                 "num_groups": 2,
             },
             "graph": {"distance": "jaccard"},
-            "brand_associations": {},
+            "associations_matrix": {},
         },
     }
 
@@ -165,7 +165,7 @@ def test_analyze_multiple_mode():
     assert set(var_dendro["cluster_assignments"].keys()) == {"1", "2"}
     assert len(body["graph"]["edges"]) == 3
 
-    assoc = body["brand_associations"]
+    assoc = body["associations_matrix"]
     assert "image_png_base64" in assoc
     assoc_png = base64.b64decode(assoc["image_png_base64"])
     assert assoc_png[:8] == b"\x89PNG\r\n\x1a\n"
@@ -410,13 +410,13 @@ def test_dendrogram_colors_match_num_groups():
     assert len(set(dendro["cluster_assignments"].values())) == 14
 
 
-def test_brand_associations_rejected_in_single_mode():
+def test_associations_matrix_rejected_in_single_mode():
     payload = {
         "variables": {
             "1": {"short_description": "V1", "long_description": "Var 1"},
         },
         "mode": "single",
-        "outputs": {"brand_associations": {}},
+        "outputs": {"associations_matrix": {}},
     }
     df = pl.DataFrame({"VAR_1": [1, 0, 1], "weight": [1.0, 1.0, 1.0]})
 
@@ -444,6 +444,6 @@ if __name__ == "__main__":
     test_explicit_weight_column()
     test_dendrogram_custom_image_dimensions()
     test_dendrogram_colors_match_num_groups()
-    test_brand_associations_rejected_in_single_mode()
+    test_associations_matrix_rejected_in_single_mode()
     print("All smoke tests passed.")
     sys.exit(0)

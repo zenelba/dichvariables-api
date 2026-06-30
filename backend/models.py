@@ -59,7 +59,7 @@ class GraphConfig(BaseModel):
     distance: DistanceMetric
 
 
-class BrandAssociationsConfig(BaseModel):
+class AssociationsMatrixConfig(BaseModel):
     image_width: int | None = Field(
         default=None,
         ge=400,
@@ -83,7 +83,7 @@ class OutputsConfig(BaseModel):
     dendrogram: DendrogramConfig | None = None
     dendrogram_variables: DendrogramConfig | None = None
     graph: GraphConfig | None = None
-    brand_associations: BrandAssociationsConfig | None = None
+    associations_matrix: AssociationsMatrixConfig | None = None
 
     @model_validator(mode="after")
     def at_least_one_output(self) -> "OutputsConfig":
@@ -93,7 +93,7 @@ class OutputsConfig(BaseModel):
                 self.dendrogram,
                 self.dendrogram_variables,
                 self.graph,
-                self.brand_associations,
+                self.associations_matrix,
             ]
         ):
             raise ValueError("At least one output type must be requested")
@@ -132,8 +132,8 @@ class AnalyzeRequest(BaseModel):
                 raise ValueError("column_prefix is required when mode is 'multiple'")
             if "_" in self.column_prefix:
                 raise ValueError("column_prefix must not contain underscores")
-        elif self.outputs.brand_associations is not None:
-            raise ValueError("brand_associations output requires mode 'multiple'")
+        elif self.outputs.associations_matrix is not None:
+            raise ValueError("associations_matrix output requires mode 'multiple'")
         return self
 
 
@@ -170,7 +170,7 @@ class GraphResult(BaseModel):
     edges: list[GraphEdge]
 
 
-class BrandAssociationsResult(BaseModel):
+class AssociationsMatrixResult(BaseModel):
     variable_ids: list[int]
     item_ids: list[int]
     values: list[list[float]]
@@ -185,7 +185,7 @@ class AnalyzeResponse(BaseModel):
     dendrogram: DendrogramResult | None = None
     dendrogram_variables: DendrogramResult | None = None
     graph: GraphResult | None = None
-    brand_associations: BrandAssociationsResult | None = None
+    associations_matrix: AssociationsMatrixResult | None = None
 
     @model_validator(mode="before")
     @classmethod
