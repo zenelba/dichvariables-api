@@ -175,6 +175,7 @@ function renderResults(data) {
       <div class="meta-row">
         <span>Variables: <strong>${a.variable_ids.length}</strong></span>
         <span>Brands: <strong>${a.item_ids.length}</strong></span>
+        <span>Sorted by item: <strong>${a.sort_by_item_id}</strong></span>
       </div>
       <img class="dendrogram-img" alt="Brand associations" src="data:image/png;base64,${a.image_png_base64}" />
       <div class="actions">
@@ -184,7 +185,7 @@ function renderResults(data) {
       <pre class="json-out"></pre>
     `;
     card.querySelector("pre").textContent = JSON.stringify(
-      { variable_ids: a.variable_ids, item_ids: a.item_ids, values: a.values },
+      { variable_ids: a.variable_ids, item_ids: a.item_ids, sort_by_item_id: a.sort_by_item_id, values: a.values },
       null,
       2,
     );

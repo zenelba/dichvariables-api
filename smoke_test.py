@@ -169,11 +169,12 @@ def test_analyze_multiple_mode():
     assert "image_png_base64" in assoc
     assoc_png = base64.b64decode(assoc["image_png_base64"])
     assert assoc_png[:8] == b"\x89PNG\r\n\x1a\n"
-    assert assoc["variable_ids"] == [1, 2]
     assert assoc["item_ids"] == [101, 102]
+    assert assoc["sort_by_item_id"] == 101
+    assert assoc["variable_ids"] == [2, 1]
     expected = [
-        [2.5 / 4.5, 3.5 / 4.5],
         [3.0 / 4.5, 1.0 / 4.5],
+        [2.5 / 4.5, 3.5 / 4.5],
     ]
     for row, exp_row in zip(assoc["values"], expected):
         for val, exp in zip(row, exp_row):
@@ -410,6 +411,56 @@ def test_dendrogram_colors_match_num_groups():
     assert len(set(dendro["cluster_assignments"].values())) == 14
 
 
+def test_associations_matrix_sort_by_item():
+    payload = {
+        "variables": {
+            "1": {
+                "short_description": "Trait 1",
+                "long_description": "Trait one",
+            },
+            "2": {
+                "short_description": "Trait 2",
+                "long_description": "Trait two",
+            },
+        },
+        "mode": "multiple",
+        "column_prefix": "IM6",
+        "items": {
+            "101": {"short_description": "A", "long_description": "Brand A"},
+            "102": {"short_description": "B", "long_description": "Brand B"},
+        },
+        "weight_column": "weight",
+        "outputs": {
+            "associations_matrix": {"sort_by_item_id": 102},
+        },
+    }
+    df = pl.DataFrame(
+        {
+            "IM6_101_1": [1, 0, 1],
+            "IM6_101_2": [1, 1, 0],
+            "IM6_102_1": [0, 1, 1],
+            "IM6_102_2": [1, 0, 0],
+            "weight": [1.0, 2.0, 1.5],
+        }
+    )
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 200, r.text
+    assoc = r.json()["associations_matrix"]
+    assert assoc["sort_by_item_id"] == 102
+    assert assoc["variable_ids"] == [1, 2]
+
+
 def test_associations_matrix_rejected_in_single_mode():
     payload = {
         "variables": {
@@ -444,6 +495,7 @@ if __name__ == "__main__":
     test_explicit_weight_column()
     test_dendrogram_custom_image_dimensions()
     test_dendrogram_colors_match_num_groups()
+    test_associations_matrix_sort_by_item()
     test_associations_matrix_rejected_in_single_mode()
     print("All smoke tests passed.")
     sys.exit(0)
