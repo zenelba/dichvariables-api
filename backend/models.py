@@ -60,6 +60,13 @@ class GraphConfig(BaseModel):
 
 
 class AssociationsMatrixConfig(BaseModel):
+    sort_by_item_id: int | None = Field(
+        default=None,
+        description=(
+            "Item (brand) used to sort variable rows descending. "
+            "Defaults to the item with the highest mean association."
+        ),
+    )
     image_width: int | None = Field(
         default=None,
         ge=400,
@@ -173,6 +180,7 @@ class GraphResult(BaseModel):
 class AssociationsMatrixResult(BaseModel):
     variable_ids: list[int]
     item_ids: list[int]
+    sort_by_item_id: int
     values: list[list[float]]
     image_width: int
     image_height: int
