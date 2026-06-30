@@ -19,7 +19,6 @@ TITLE_FONT_SIZE = 10
 CAPTION_FONT_SIZE = 8
 BAR_COLOR = "#1f4e79"
 HEADER_COLOR = "#3366cc"
-DIVIDER_COLOR = "#d0d0d0"
 
 
 def _png_pixel_size(png_bytes: bytes) -> tuple[int, int]:
@@ -33,7 +32,7 @@ def _resolve_figure_size(
     if config.image_width is not None:
         fig_width = config.image_width / dpi
     else:
-        fig_width = max(10.0, n_items * 2.2 + 4.0)
+        fig_width = max(10.0, n_items * 2.0 + 5.0)
     if config.image_height is not None:
         fig_height = config.image_height / dpi
     else:
@@ -93,6 +92,19 @@ def _sort_matrix_rows(
     return sorted_matrix, sorted_variable_ids, sorted_variable_labels
 
 
+def _sort_matrix_columns(
+    matrix: np.ndarray,
+    item_ids: list[int],
+    item_labels: list[str],
+) -> tuple[np.ndarray, list[int], list[str]]:
+    col_maxes = matrix.max(axis=0)
+    order = np.argsort(-col_maxes)
+    sorted_matrix = matrix[:, order]
+    sorted_item_ids = [item_ids[i] for i in order]
+    sorted_item_labels = [item_labels[i] for i in order]
+    return sorted_matrix, sorted_item_ids, sorted_item_labels
+
+
 def _render_association_matrix_png(
     matrix: np.ndarray,
     variable_labels: list[str],
@@ -101,22 +113,39 @@ def _render_association_matrix_png(
 ) -> tuple[bytes, int, int, int]:
     n_vars, n_items = matrix.shape
     fig_width, fig_height, dpi = _resolve_figure_size(config, n_vars, n_items)
+    width_ratios = [2.8] + [1.0] * n_items
     fig, axes = plt.subplots(
         1,
-        n_items,
+        n_items + 1,
         figsize=(fig_width, fig_height),
         facecolor="white",
         squeeze=False,
-        sharey=True,
-        gridspec_kw={"wspace": 0.08},
+        gridspec_kw={"width_ratios": width_ratios, "wspace": 0.12},
     )
 
     y_pos = np.arange(n_vars)
     bar_height = 0.72
-    x_max = 100.0
+    label_ax = axes[0, 0]
+    label_ax.set_xlim(0, 1)
+    label_ax.set_ylim(-0.5, n_vars - 0.5)
+    label_ax.invert_yaxis()
+    label_ax.axis("off")
+    for yi, label in enumerate(variable_labels):
+        label_ax.text(
+            1.0,
+            yi,
+            label,
+            ha="right",
+            va="center",
+            fontsize=LABEL_FONT_SIZE,
+            color="#333333",
+        )
+
+    max_pct = max(float(matrix.max()) * 100.0, 1.0)
+    x_max = min(100.0, max_pct * 1.22)
 
     for ii in range(n_items):
-        ax = axes[0, ii]
+        ax = axes[0, ii + 1]
         pcts = matrix[:, ii] * 100.0
         ax.barh(
             y_pos,
@@ -128,7 +157,7 @@ def _render_association_matrix_png(
         )
         for yi, pct in zip(y_pos, pcts):
             ax.text(
-                min(pct + 1.5, x_max - 8),
+                pct + x_max * 0.02,
                 yi,
                 f"{pct:.0f}%",
                 va="center",
@@ -149,24 +178,11 @@ def _render_association_matrix_png(
             pad=10,
             fontweight="bold",
         )
-        ax.set_xticks([0, 25, 50, 75, 100])
-        ax.tick_params(axis="x", labelsize=7, colors="#666666")
-        ax.grid(axis="x", color="#eeeeee", linewidth=0.8, zorder=0)
-
-        if ii == 0:
-            ax.set_yticks(y_pos)
-            ax.set_yticklabels(variable_labels, fontsize=LABEL_FONT_SIZE, color="#333333")
-        else:
-            ax.set_yticklabels([])
-            ax.tick_params(axis="y", length=0)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.spines["left"].set_visible(ii == 0)
-        ax.spines["bottom"].set_color(DIVIDER_COLOR)
-
-        if ii < n_items - 1:
-            ax.axvline(x=x_max, color=DIVIDER_COLOR, linewidth=1.0, zorder=3)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
     fig.suptitle(
         "Brand associations (weighted % of cases)",
@@ -209,22 +225,27 @@ def compute_associations_matrix(
         data.item_ids,
         sort_item_id,
     )
+    sorted_matrix, sorted_item_ids, sorted_item_labels = _sort_matrix_columns(
+        sorted_matrix,
+        data.item_ids,
+        item_labels,
+    )
 
     png_bytes, width_px, height_px, dpi = _render_association_matrix_png(
         sorted_matrix,
         sorted_variable_labels,
-        item_labels,
+        sorted_item_labels,
         config,
     )
 
     values = [
-        [float(sorted_matrix[vi, ii]) for ii in range(len(data.item_ids))]
+        [float(sorted_matrix[vi, ii]) for ii in range(len(sorted_item_ids))]
         for vi in range(len(sorted_variable_ids))
     ]
 
     return AssociationsMatrixResult(
         variable_ids=sorted_variable_ids,
-        item_ids=data.item_ids,
+        item_ids=sorted_item_ids,
         sort_by_item_id=sort_item_id,
         values=values,
         image_width=width_px,
