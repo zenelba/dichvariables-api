@@ -10,6 +10,8 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.models import Mode
+from backend.services.dendrogram import _build_dendrogram_caption
 
 client = TestClient(app)
 
@@ -485,6 +487,34 @@ def test_associations_matrix_rejected_in_single_mode():
     assert r.status_code == 422
 
 
+def test_dendrogram_caption_includes_mode_and_counts():
+    single_caption = _build_dendrogram_caption(
+        "variables",
+        "jaccard",
+        "ward",
+        14,
+        n_elements=26,
+        mode=Mode.SINGLE,
+        n_brands=None,
+    )
+    assert "Elements: 26" in single_caption
+    assert "Mode: single" in single_caption
+    assert "Brands:" not in single_caption
+
+    multiple_caption = _build_dendrogram_caption(
+        "variables",
+        "jaccard",
+        "ward",
+        14,
+        n_elements=26,
+        mode=Mode.MULTIPLE,
+        n_brands=9,
+    )
+    assert "Elements: 26" in multiple_caption
+    assert "Mode: multiple" in multiple_caption
+    assert "Brands: 9" in multiple_caption
+
+
 def test_multiple_mode_one_item():
     payload = {
         "variables": {
@@ -609,6 +639,7 @@ if __name__ == "__main__":
     test_explicit_weight_column()
     test_dendrogram_custom_image_dimensions()
     test_dendrogram_colors_match_num_groups()
+    test_dendrogram_caption_includes_mode_and_counts()
     test_associations_matrix_sort_by_item()
     test_associations_matrix_rejected_in_single_mode()
     test_multiple_mode_one_item()

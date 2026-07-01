@@ -84,6 +84,28 @@ def _leaf_colors_in_display_order(
     return [color_map[int(flat_clusters[leaf_idx])] for leaf_idx in leaves]
 
 
+def _build_dendrogram_caption(
+    entity_label: str,
+    distance_name: str,
+    grouping_name: str,
+    num_groups: int,
+    *,
+    n_elements: int,
+    mode: Mode,
+    n_brands: int | None,
+) -> str:
+    details = [
+        f"Similarity: {distance_name.upper()}",
+        f"Linkage: {grouping_name.upper()}",
+        f"Groups: {num_groups}",
+        f"Elements: {n_elements}",
+        f"Mode: {mode.value}",
+    ]
+    if mode == Mode.MULTIPLE and n_brands is not None:
+        details.append(f"Brands: {n_brands}")
+    return f"Hierarchical clustering of {entity_label} ({', '.join(details)})"
+
+
 def _render_dendrogram_png(
     linkage_matrix,
     labels: list[str],
@@ -93,13 +115,21 @@ def _render_dendrogram_png(
     grouping_name: str,
     entity_label: str,
     config: DendrogramConfig,
+    *,
+    n_elements: int,
+    mode: Mode,
+    n_brands: int | None,
 ) -> tuple[bytes, int, int, int]:
     fig_width, fig_height, dpi = _resolve_figure_size(config, len(labels))
     fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor="white")
-    caption = (
-        f"Hierarchical clustering of {entity_label} "
-        f"(Similarity: {distance_name.upper()}, Linkage: {grouping_name.upper()}, "
-        f"Groups: {config.num_groups})"
+    caption = _build_dendrogram_caption(
+        entity_label,
+        distance_name,
+        grouping_name,
+        config.num_groups,
+        n_elements=n_elements,
+        mode=mode,
+        n_brands=n_brands,
     )
 
     dendro_preview = scipy_dendrogram(
@@ -203,6 +233,10 @@ def _compute_dendrogram_from_distances(
     text_labels: list[str],
     entity_label: str,
     config: DendrogramConfig,
+    *,
+    n_elements: int,
+    mode: Mode,
+    n_brands: int | None,
 ) -> DendrogramResult:
     n_entities = len(entity_ids)
     linkage_matrix = linkage(distance_vector, method=config.grouping.value)
@@ -226,6 +260,9 @@ def _compute_dendrogram_from_distances(
         config.grouping.value,
         entity_label,
         config,
+        n_elements=n_elements,
+        mode=mode,
+        n_brands=n_brands,
     )
 
     cluster_assignments = {
@@ -252,6 +289,9 @@ def compute_dendrogram(
     *,
     entity: DendrogramEntity | None = None,
 ) -> DendrogramResult:
+    n_elements = len(request.variables)
+    n_brands = len(data.item_ids) if request.mode == Mode.MULTIPLE and data.item_ids else None
+
     if request.mode == Mode.MULTIPLE:
         cluster_entity = entity or "items"
         if cluster_entity == "items":
@@ -288,4 +328,7 @@ def compute_dendrogram(
         text_labels,
         entity_label,
         config,
+        n_elements=n_elements,
+        mode=request.mode,
+        n_brands=n_brands,
     )
