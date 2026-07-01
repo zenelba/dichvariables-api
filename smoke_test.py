@@ -566,6 +566,38 @@ def test_multiple_mode_one_item():
     assert r_dendro.status_code == 422
     assert "two items" in r_dendro.json()["detail"]
 
+    both_dendro_payload = {
+        **payload,
+        "outputs": {
+            "dendrogram": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+            },
+            "dendrogram_variables": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+            },
+        },
+    }
+    r_both = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(both_dendro_payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r_both.status_code == 200, r_both.text
+    both_body = r_both.json()
+    assert "dendrogram" not in both_body
+    assert "dendrogram_variables" in both_body
+    assert "image_png_base64" in both_body["dendrogram_variables"]
+
 
 if __name__ == "__main__":
     test_health()
