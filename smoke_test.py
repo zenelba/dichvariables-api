@@ -169,12 +169,12 @@ def test_analyze_multiple_mode():
     assert "image_png_base64" in assoc
     assoc_png = base64.b64decode(assoc["image_png_base64"])
     assert assoc_png[:8] == b"\x89PNG\r\n\x1a\n"
-    assert assoc["item_ids"] == [102, 101]
+    assert assoc["item_ids"] == [101, 102]
     assert assoc["sort_by_item_id"] == 101
     assert assoc["variable_ids"] == [2, 1]
     expected = [
-        [1.0 / 4.5, 3.0 / 4.5],
-        [3.5 / 4.5, 2.5 / 4.5],
+        [3.0 / 4.5, 1.0 / 4.5],
+        [2.5 / 4.5, 3.5 / 4.5],
     ]
     for row, exp_row in zip(assoc["values"], expected):
         for val, exp in zip(row, exp_row):

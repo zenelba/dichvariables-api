@@ -97,8 +97,8 @@ def _sort_matrix_columns(
     item_ids: list[int],
     item_labels: list[str],
 ) -> tuple[np.ndarray, list[int], list[str]]:
-    col_maxes = matrix.max(axis=0)
-    order = np.argsort(-col_maxes)
+    col_sums = matrix.sum(axis=0)
+    order = np.argsort(-col_sums)
     sorted_matrix = matrix[:, order]
     sorted_item_ids = [item_ids[i] for i in order]
     sorted_item_labels = [item_labels[i] for i in order]
