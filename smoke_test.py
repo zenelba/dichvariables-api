@@ -485,6 +485,88 @@ def test_associations_matrix_rejected_in_single_mode():
     assert r.status_code == 422
 
 
+def test_multiple_mode_one_item():
+    payload = {
+        "variables": {
+            "1": {
+                "short_description": "Trait 1",
+                "long_description": "Trait one",
+            },
+            "2": {
+                "short_description": "Trait 2",
+                "long_description": "Trait two",
+            },
+        },
+        "mode": "multiple",
+        "column_prefix": "IM6",
+        "items": {
+            "101": {"short_description": "A", "long_description": "Brand A"},
+        },
+        "weight_column": "weight",
+        "outputs": {
+            "segmentation": {"num_segments": 2},
+            "graph": {"distance": "jaccard"},
+            "associations_matrix": {},
+            "dendrogram_variables": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+            },
+        },
+    }
+    df = pl.DataFrame(
+        {
+            "IM6_101_1": [1, 0, 1],
+            "IM6_101_2": [1, 1, 0],
+            "weight": [1.0, 1.0, 1.0],
+        }
+    )
+
+    r = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "segmentation" in body
+    assert "graph" in body
+    assert "associations_matrix" in body
+    assert "dendrogram_variables" in body
+    assert body["associations_matrix"]["item_ids"] == [101]
+    assert body["associations_matrix"]["variable_ids"] == [1, 2]
+
+    dendro_payload = {
+        **payload,
+        "outputs": {
+            "dendrogram": {
+                "distance": "jaccard",
+                "grouping": "average",
+                "num_groups": 2,
+            }
+        },
+    }
+    r_dendro = client.post(
+        "/api/v1/analyze",
+        data={"payload": json.dumps(dendro_payload)},
+        files={
+            "dataframe": (
+                "data.arrow",
+                _make_ipc(df),
+                "application/vnd.apache.arrow.stream",
+            )
+        },
+    )
+    assert r_dendro.status_code == 422
+    assert "two items" in r_dendro.json()["detail"]
+
+
 if __name__ == "__main__":
     test_health()
     test_analyze_single_mode_var_columns()
@@ -497,5 +579,6 @@ if __name__ == "__main__":
     test_dendrogram_colors_match_num_groups()
     test_associations_matrix_sort_by_item()
     test_associations_matrix_rejected_in_single_mode()
+    test_multiple_mode_one_item()
     print("All smoke tests passed.")
     sys.exit(0)
