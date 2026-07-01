@@ -1,5 +1,5 @@
 from backend.dataframe import PreparedData
-from backend.models import AnalyzeRequest, AnalyzeResponse
+from backend.models import AnalyzeRequest, AnalyzeResponse, Mode
 from backend.services.associations_matrix import compute_associations_matrix
 from backend.services.dendrogram import compute_dendrogram
 from backend.services.graph import compute_graph
@@ -15,9 +15,17 @@ def run_analysis(request: AnalyzeRequest, data: PreparedData) -> AnalyzeResponse
         )
 
     if request.outputs.dendrogram is not None:
-        response["dendrogram"] = compute_dendrogram(
-            data, request, request.outputs.dendrogram, entity="items"
+        skip_item_dendrogram = (
+            request.mode == Mode.MULTIPLE
+            and data.item_ids is not None
+            and len(data.item_ids) < 2
         )
+        if skip_item_dendrogram and request.outputs.dendrogram_variables is None:
+            raise ValueError("Need at least two items for dendrogram clustering")
+        if not skip_item_dendrogram:
+            response["dendrogram"] = compute_dendrogram(
+                data, request, request.outputs.dendrogram, entity="items"
+            )
 
     if request.outputs.dendrogram_variables is not None:
         response["dendrogram_variables"] = compute_dendrogram(
