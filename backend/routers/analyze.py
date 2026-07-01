@@ -28,4 +28,7 @@ async def analyze(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    return run_analysis(request, data)
+    try:
+        return run_analysis(request, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
